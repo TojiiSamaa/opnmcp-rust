@@ -47,6 +47,10 @@ OPNsense utilise par défaut un certificat auto-signé. Il vaut mieux exporter s
 
 Vous trouverez un exemple dans [`examples/mcp.json`](examples/mcp.json).
 
+### Skill pour agents (tous clients)
+
+[`skill/opnmcp-rust/SKILL.md`](skill/opnmcp-rust/SKILL.md) décrit les 209 outils, le possible, l'impossible et les recettes, sans syntaxe propre à un client. Installer le skill : Claude Code, copier le dossier `skill/opnmcp-rust` dans `~/.claude/skills/` ; OpenCode, Hermes, Cursor, Codex : lire [`AGENTS.md`](AGENTS.md) (fourni à la racine, il pointe vers le skill) ou copier le dossier dans le répertoire de skills ou de règles du client. Un test (`npm test`) échoue si le skill et la liste des outils divergent.
+
 ## Configuration
 
 | Variable | Défaut | Rôle |
