@@ -1,0 +1,27 @@
+name: ci-ts
+
+# Tests du serveur TypeScript, du skill et du mode test (preuves A, B, mutation, isolement réseau).
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: typecheck, tests, mutation, isolement réseau
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run test:mutation
+      - name: Preuve B sous isolement réseau (conteneur sans interface réseau)
+        run: npm run test:isolated

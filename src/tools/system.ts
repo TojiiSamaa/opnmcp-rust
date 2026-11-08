@@ -3,6 +3,7 @@ import { OpnsenseError } from '../opnsense/errors.js';
 import { assertApplied, compactGrid, fetchAll, isObject, paginateArray, searchGrid } from '../opnsense/model.js';
 import { redactXmlLines } from '../opnsense/redact.js';
 import { gather, paging, sparse, tool, type ToolDef } from './helpers.js';
+import { stats } from '../stats.js';
 import { fetchConfigJson, fetchConfigXml } from './shared.js';
 
 const backupId = z.string().regex(/^config-[0-9._]+\.xml$/, 'Expected a backup id such as config-1762345678.1234.xml').describe('Backup id, from opn_list_config_backups.');
@@ -24,6 +25,7 @@ export function systemTools(info: () => Record<string, unknown>): ToolDef[] {
           ...info(),
           instance: ctx.instance.name,
           firewall: ctx.instance.url,
+          test_mode: ctx.server.testMode,
           writes_enabled: ctx.instance.allowWrites,
           dry_run: ctx.instance.dryRun,
           sensitive_allowed: ctx.instance.allowSensitive,
@@ -37,6 +39,16 @@ export function systemTools(info: () => Record<string, unknown>): ToolDef[] {
           pending_change: ctx.changes.status(),
         };
       },
+    }),
+    tool({
+      name: 'opn_stats',
+      title: 'Usage statistics',
+      description: 'Counters of this server process: calls and errors per tool, latency p50 and p95, last call, real calls against test-mode calls, network cuts, simulated admin answers. Local only, nothing is sent to the firewall. The operator can export the same JSON to a file with OPNSENSE_STATS_FILE.',
+      domain: 'system',
+      access: 'read',
+      idempotent: true,
+      input: {},
+      handler: async () => stats.snapshot(),
     }),
     tool({
       name: 'opn_system_status',

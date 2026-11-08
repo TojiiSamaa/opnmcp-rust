@@ -9,7 +9,7 @@ import { createServer, visibleTools } from './server.js';
 
 const HELP = `osmcp: MCP server for OPNsense firewalls
 
-Usage: osmcp [--http] [--host 127.0.0.1] [--port 8765] [--list-tools]
+Usage: osmcp [--http] [--host 127.0.0.1] [--port 8765] [--list-tools] [--test]
 
 Default transport: stdio. Configuration comes from the environment, see the README.
   OPNSENSE_URL, OPNSENSE_API_KEY, OPNSENSE_API_SECRET   the firewall
@@ -25,6 +25,7 @@ async function main(): Promise<void> {
       host: { type: 'string', default: '127.0.0.1' },
       port: { type: 'string', default: '8765' },
       'list-tools': { type: 'boolean', default: false },
+      test: { type: 'boolean', default: false },
       help: { type: 'boolean', short: 'h', default: false },
     },
   });
@@ -33,6 +34,8 @@ async function main(): Promise<void> {
     return;
   }
 
+  // Test mode is decided here, once, and no tool can change it.
+  if (values.test) process.env.MCP_TEST_MODE = '1';
   const runtime = new Runtime(loadConfig());
 
   if (values['list-tools']) {
