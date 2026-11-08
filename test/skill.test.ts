@@ -10,7 +10,7 @@ it('skill/opnmcp-rust/SKILL.md liste exactement les outils du serveur', async ()
   const defs = visibleTools(rt);
   const real = new Set(defs.map((t) => t.name));
   await rt.shutdown();
-  const md = readFileSync(new URL('../skill/opnmcp-rust/SKILL.md', import.meta.url), 'utf8');
+  const md = readFileSync(new URL('../skill/opnmcp-rust/SKILL.md', import.meta.url), 'utf8').replaceAll('\r\n', '\n'); // clone Windows (autocrlf) : fins de ligne CRLF
   const rows = [...md.matchAll(/^\| `(opn_\w+)` \|/gm)].map((m) => m[1]);
   const validation = new Map([...md.matchAll(/^\| `(opn_\w+)` \| \S+ \| (oui|non) \|/gm)].map((m) => [m[1], m[2]]));
   const mentioned = new Set(md.match(/\bopn_[a-z0-9_]+\b/g));
