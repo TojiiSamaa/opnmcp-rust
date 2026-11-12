@@ -112,12 +112,13 @@ export function createServer(runtime: Runtime): McpServer {
     try {
       answer = await server.server.elicitInput({
         message: def.confirmation(args),
-        requestedSchema: { type: 'object', properties: { confirm: { type: 'boolean', title: 'Confirm', description: 'Go ahead with this action.' } }, required: ['confirm'] },
+        requestedSchema: { type: 'object', properties: { confirm: { type: 'boolean', title: 'Confirm', description: 'Go ahead with this action. Untick to refuse.', default: true } }, required: ['confirm'] },
       });
     } catch (err) {
       throw new OpnsenseError('user_cancelled', `Could not get a confirmation from the user: ${(err as Error).message}. Nothing was done.`);
     }
-    if (answer.action !== 'accept' || answer.content?.confirm !== true) {
+    // "Accept" is the yes; only an explicit confirm:false refuses (clients that drop the default send no content).
+    if (answer.action !== 'accept' || answer.content?.confirm === false) {
       throw new OpnsenseError('user_cancelled', 'The user did not confirm this action, so nothing was done.', { hint: 'Do not retry unless the user asks for it.' });
     }
   }

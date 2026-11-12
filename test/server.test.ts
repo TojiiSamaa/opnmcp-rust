@@ -470,10 +470,18 @@ describe('asking a human', () => {
     expect(fake.called('firewall/filter/del_rule')).toHaveLength(1);
   });
 
+  it('goes ahead on accept alone, without the box (issue #2)', async () => {
+    const { fake, call } = await connect({ env: WRITES, onElicit: () => ({ action: 'accept' }) });
+    fake.rules.push({ uuid: '22222222-2222-4222-8222-222222222222', action: 'pass', enabled: '1' });
+    const res = await call('opn_delete_firewall_rule', { uuid: '22222222-2222-4222-8222-222222222222' });
+    expect(res.isError).toBe(false);
+    expect(fake.called('firewall/filter/del_rule')).toHaveLength(1);
+  });
+
   it.each([
     ['decline', { action: 'decline' as const }],
     ['cancel', { action: 'cancel' as const }],
-    ['accept without the box ticked', { action: 'accept' as const, content: { confirm: false } }],
+    ['accept with the box unticked', { action: 'accept' as const, content: { confirm: false } }],
   ])('does nothing on %s', async (_label, answer) => {
     const { fake, call } = await connect({ env: WRITES, onElicit: () => answer });
     const res = await call('opn_delete_firewall_rule', { uuid: '22222222-2222-4222-8222-222222222222' });

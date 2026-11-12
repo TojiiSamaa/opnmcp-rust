@@ -354,7 +354,7 @@ impl Session {
             "jsonrpc": "2.0", "id": id, "method": "elicitation/create",
             "params": {
                 "message": confirmation(args),
-                "requestedSchema": { "type": "object", "properties": { "confirm": { "type": "boolean", "title": "Confirm", "description": "Go ahead with this action." } }, "required": ["confirm"] },
+                "requestedSchema": { "type": "object", "properties": { "confirm": { "type": "boolean", "title": "Confirm", "description": "Go ahead with this action. Untick to refuse.", "default": true } }, "required": ["confirm"] },
             },
         });
         let cancelled = |why: String| {
@@ -377,7 +377,8 @@ impl Session {
         }
         let result = answer.get("result").cloned().unwrap_or(Value::Null);
         let accepted = result.get("action").and_then(Value::as_str) == Some("accept")
-            && result.pointer("/content/confirm") == Some(&Value::Bool(true));
+            // « Accepter » vaut oui ; seul un confirm:false explicite refuse.
+            && result.pointer("/content/confirm") != Some(&Value::Bool(false));
         if !accepted {
             return Err(OpnError::new(
                 ErrorType::UserCancelled,
