@@ -1,6 +1,6 @@
 {
   "name": "osmcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Serveur MCP pour pare-feu OPNsense : un outil par demande, lecture seule par défaut, rollback réel y compris sur 26.7+.",
   "license": "MIT",
   "type": "module",
