@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/discord-apercu.png" alt="opnmcp-rust" width="900"></p>
+
 <p align="center"><img src="bench/chart.svg" alt="TypeScript de Yutho contre Rust de Toji : mesures et verdict" width="820"></p>
 
 <p align="center"><sub>Mis à jour automatiquement : à chaque changement du Rust, du banc ou du TypeScript, et chaque jour pour suivre le code de Yutho. <a href="#version-rust-rust">Détails</a></sub></p>
