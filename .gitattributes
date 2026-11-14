@@ -1,2 +1,8 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Skill, scripts shell et CI restent en LF meme avec core.autocrlf=true (tests et sh en dependent)
+*.md text eol=lf
+*.sh text eol=lf
+*.yml text eol=lf
+*.mjs text eol=lf

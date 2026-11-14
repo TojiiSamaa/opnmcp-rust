@@ -47,6 +47,14 @@ OPNsense utilise par défaut un certificat auto-signé. Il vaut mieux exporter s
 
 Vous trouverez un exemple dans [`examples/mcp.json`](examples/mcp.json).
 
+### Skill pour agents (tous clients)
+
+[`skill/opnmcp-rust/SKILL.md`](skill/opnmcp-rust/SKILL.md) décrit les 210 outils, le mode test, le possible, l'impossible et les recettes, sans syntaxe propre à un client. Installer le skill : Claude Code, copier le dossier `skill/opnmcp-rust` dans `~/.claude/skills/` ; OpenCode, Hermes, Cursor, Codex : lire [`AGENTS.md`](AGENTS.md) (fourni à la racine, il pointe vers le skill) ou copier le dossier dans le répertoire de skills ou de règles du client. Un test (`npm test`) échoue si le skill et la liste des outils divergent.
+
+## Mode test (TypeScript)
+
+`MCP_TEST_MODE=1` ou `--test`, au démarrage seulement : les 210 outils répondent depuis un simulacre en mémoire (réponses marquées `test_mode: true` / `[TEST]`), sans URL ni clé OPNsense, avec le réseau coupé par un point unique (`TEST_MODE_EGRESS_BLOCKED`). `MCP_TEST_APPROVER=deny|approve|timeout|absent` (défaut `deny`) simule l'admin qui valide les actions destructives. `opn_stats` donne les compteurs ; `OPNSENSE_STATS_FILE` les exporte en JSON. Preuves automatiques : `npm test` (A structurelle, B sentinelle), `npm run test:isolated` (conteneur `--network none`), `npm run test:mutation`. Détails dans le [skill](skill/opnmcp-rust/SKILL.md).
+
 ## Configuration
 
 | Variable | Défaut | Rôle |
@@ -98,7 +106,7 @@ La protection contre les erreurs dépend aussi de la clé : pour le rollback, el
 | `security` | 1 | | audit de sécurité |
 | `api` | 3 | 1 | catalogue de 2471 points d'API, description des modèles, appels génériques |
 
-Soit 103 outils en lecture seule par défaut, et 209 au maximum. Si votre client les charge tous dans son contexte, limitez avec `OPNSENSE_TOOLSETS=firewall,nat,diagnostics`. Pour afficher la liste exacte : `node dist/index.js --list-tools`.
+Soit 104 outils en lecture seule par défaut, et 210 au maximum. Si votre client les charge tous dans son contexte, limitez avec `OPNSENSE_TOOLSETS=firewall,nat,diagnostics`. Pour afficher la liste exacte : `node dist/index.js --list-tools`.
 
 Les noms reprennent ceux de [lucamarien/opnsense-mcp-server](https://github.com/lucamarien/opnsense-mcp-server) lorsque la fonction est la même, avec une différence pour HAProxy : un jeu d'outils par type d'objet, plutôt qu'un paramètre de type.
 
@@ -174,7 +182,7 @@ Pour tester sur un vrai pare-feu sans risque : clé API avec des privilèges en 
 
 ## Version Rust (`rust/`)
 
-Portage Rust complet de ce serveur : mêmes 209 outils, mêmes noms, descriptions, schémas et annotations (vérifié par `bench/parite.mjs`), même politique d'accès fail-closed, mêmes protections de rollback. Un seul binaire sans runtime Node.
+Portage Rust de ce serveur : mêmes 209 outils (le TypeScript en a un de plus, `opn_stats`, et seul lui a le [mode test](#mode-test)), mêmes noms, descriptions, schémas et annotations (vérifié par `bench/parite.mjs`), même politique d'accès fail-closed, mêmes protections de rollback. Un seul binaire sans runtime Node.
 
 ```bash
 cd rust && cargo build --release      # binaire : target/release/osmcp
