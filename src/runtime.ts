@@ -4,6 +4,9 @@ import type { InstanceConfig, ServerConfig } from './config.js';
 import { ChangeManager, type Notify } from './opnsense/changes.js';
 import { OpnsenseClient, type Method } from './opnsense/client.js';
 import { OpnsenseError } from './opnsense/errors.js';
+import { createMockTransport } from './opnsense/mock-transport.js';
+import { blockEgress } from './opnsense/transport.js';
+import { stats } from './stats.js';
 
 export interface InstanceRuntime {
   config: InstanceConfig;
@@ -33,8 +36,11 @@ export class Runtime {
 
   constructor(readonly config: ServerConfig) {
     if (config.auditLog) this.assertAuditWritable(config.auditLog);
+    stats.configure({ mode: config.testMode ? 'test' : 'real', ...(process.env.OPNSENSE_STATS_FILE ? { file: process.env.OPNSENSE_STATS_FILE } : {}) });
+    // Test mode: close the network first, then build clients on the in-memory backend. The real transport is never created.
+    if (config.testMode) blockEgress();
     for (const [name, instance] of config.instances) {
-      const client = new OpnsenseClient(instance, config.unblocked, (entry) => this.onWrite(name, entry));
+      const client = new OpnsenseClient(instance, config.unblocked, (entry) => this.onWrite(name, entry), config.testMode ? createMockTransport() : undefined);
       const changes = new ChangeManager(client, (level, message) => this.notify(level, `[${name}] ${message}`));
       this.instances.set(name, { config: instance, client, changes });
     }

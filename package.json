@@ -21,6 +21,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:isolated": "sh scripts/test-isolated.sh",
+    "test:mutation": "node scripts/mutation-test.mjs",
     "start": "node dist/index.js",
     "catalog": "node scripts/build-catalog.mjs",
     "prepublishOnly": "npm run typecheck && npm test && npm run build"

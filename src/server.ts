@@ -6,6 +6,7 @@ import { isObject } from './opnsense/model.js';
 import { redactJson, scrubText } from './opnsense/redact.js';
 import { registerPrompts } from './prompts.js';
 import { registerResources } from './resources.js';
+import { stats } from './stats.js';
 import type { Runtime, WriteRecord } from './runtime.js';
 import { DOMAINS, ScopedApi, type ToolContext, type ToolDef, type Domain } from './tools/helpers.js';
 import { allTools } from './tools/index.js';
@@ -101,12 +102,14 @@ function errorResult(err: unknown): { isError: true; content: Array<{ type: 'tex
 
 export function createServer(runtime: Runtime): McpServer {
   const server = new McpServer({ name: 'osmcp', version: VERSION }, { capabilities: { logging: {} }, instructions: INSTRUCTIONS });
-  const names = [...runtime.instances.keys()] as [string, ...string[]];
+  const names = [...runtime.config.instances.keys()] as [string, ...string[]];
   const multiple = names.length > 1;
 
   /** Asks a human before a destructive action, when the client is able to ask. Fails closed. */
   async function confirmWithHuman(def: ToolDef, args: Record<string, unknown>): Promise<void> {
-    if (!def.confirmation || !runtime.config.elicit) return;
+    if (!def.confirmation) return;
+    if (runtime.config.testMode) return simulatedApproval(def);
+    if (!runtime.config.elicit) return;
     if (!server.server.getClientCapabilities()?.elicitation) return;
     let answer;
     try {
@@ -123,7 +126,50 @@ export function createServer(runtime: Runtime): McpServer {
     }
   }
 
-  async function invoke(def: ToolDef, raw: Record<string, unknown>) {
+  /** Test mode: a simulated admin chosen at startup (MCP_TEST_APPROVER). It exists only behind the closed network; it authorizes nothing real. */
+  function simulatedApproval(def: ToolDef): void {
+    switch (runtime.config.approver) {
+      case 'approve':
+        stats.approval('approved');
+        return;
+      case 'timeout':
+        stats.approval('timeouts');
+        throw new OpnsenseError('confirmation_timeout', `[TEST] The simulated admin did not answer in time for ${def.name}. Nothing was done.`, { hint: 'Do not retry unless the user asks for it.' });
+      case 'absent':
+        stats.approval('absent');
+        throw new OpnsenseError('confirmation_required', `ConfirmationRequired: ${def.name} needs an admin confirmation and this client cannot give one. Nothing was done.`, {
+          hint: 'Use a client that supports confirmation requests (elicitation), or ask the operator.',
+        });
+      default:
+        stats.approval('denied');
+        throw new OpnsenseError('user_cancelled', `[TEST] The simulated admin refused ${def.name}, so nothing was done.`, { hint: 'Do not retry unless the user asks for it.' });
+    }
+  }
+
+  type Result = { isError?: true; content: Array<{ type: 'text'; text: string }> };
+
+  /** Every answer of a test-mode server carries the marker, errors included. */
+  function markTest(res: Result): Result {
+    const first = res.content[0];
+    if (!first) return res;
+    try {
+      const body = JSON.parse(first.text) as unknown;
+      if (isObject(body)) return { ...res, content: [{ type: 'text', text: JSON.stringify({ test_mode: true, marker: '[TEST]', ...body }) }] };
+    } catch {
+      /* not JSON: prefix below */
+    }
+    return { ...res, content: [{ type: 'text', text: `[TEST] ${first.text}` }] };
+  }
+
+  async function invoke(def: ToolDef, raw: Record<string, unknown>): Promise<Result> {
+    const t0 = Date.now();
+    const res = (await invokeInner(def, raw)) as Result;
+    const test = runtime.config.testMode;
+    stats.record(def.name, Date.now() - t0, res.isError === true, test);
+    return test ? markTest(res) : res;
+  }
+
+  async function invokeInner(def: ToolDef, raw: Record<string, unknown>) {
     const started = Date.now();
     const { instance: instanceName, dry_run: dryRunArg, ...args } = raw;
     const writes: WriteRecord[] = [];

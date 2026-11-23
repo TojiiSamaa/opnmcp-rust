@@ -21,7 +21,10 @@ export type ErrorType =
   | 'rollback_blocked'
   | 'rollback_failed'
   | 'lockout_risk'
-  | 'change_in_progress';
+  | 'change_in_progress'
+  | 'egress_blocked'
+  | 'confirmation_required'
+  | 'confirmation_timeout';
 
 /**
  * Every failure carries a type and, where it helps, a hint telling the agent what

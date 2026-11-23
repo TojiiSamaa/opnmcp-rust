@@ -1,9 +1,8 @@
-import http from 'node:http';
-import https from 'node:https';
 import { Buffer } from 'node:buffer';
 import type { InstanceConfig } from '../config.js';
 import { OpnsenseError } from './errors.js';
 import { authorize, type AuthorizeOptions, type Decision } from './policy.js';
+import { createHttpTransport, type Transport, type WireResponse } from './transport.js';
 import { assertNoRedactedValue, redactJson, scrubText } from './redact.js';
 
 export type Method = 'GET' | 'POST';
@@ -64,17 +63,10 @@ function atLeast(major: number, minor: number, wantMajor: number, wantMinor: num
   return major > wantMajor || (major === wantMajor && minor >= wantMinor);
 }
 
-interface RawResponse {
-  status: number;
-  contentType: string;
-  body: string;
-  localAddress?: string;
-  remoteAddress?: string;
-}
+type RawResponse = WireResponse;
 
 export class OpnsenseClient {
-  private readonly agent: http.Agent;
-  private readonly agentOptions: https.AgentOptions;
+  private readonly transport: Transport;
   private readonly base: URL;
   private readonly authHeader: string;
   private capabilitiesCache?: Capabilities;
@@ -89,22 +81,15 @@ export class OpnsenseClient {
     readonly config: InstanceConfig,
     private readonly unblocked: readonly string[] = [],
     private readonly onWrite?: (entry: { method: Method; path: string; body?: unknown; status: string }) => void,
+    transport?: Transport,
   ) {
     this.base = new URL(config.url);
     this.authHeader = `Basic ${Buffer.from(`${config.apiKey}:${config.apiSecret}`).toString('base64')}`;
-    const options: https.AgentOptions = { keepAlive: true, maxSockets: MAX_CONCURRENCY };
-    if (this.base.protocol === 'https:') {
-      options.rejectUnauthorized = config.verifySsl;
-      if (config.ca) options.ca = config.ca;
-      this.agent = new https.Agent(options);
-    } else {
-      this.agent = new http.Agent(options);
-    }
-    this.agentOptions = options;
+    this.transport = transport ?? createHttpTransport(config, MAX_CONCURRENCY);
   }
 
   close(): void {
-    this.agent.destroy();
+    this.transport.close();
   }
 
   get(path: string, opts: RequestOptions = {}): Promise<unknown> {
@@ -314,37 +299,17 @@ export class OpnsenseClient {
       headers['Content-Type'] = 'application/json';
       headers['Content-Length'] = String(Buffer.byteLength(payload));
     }
-    const transport = this.base.protocol === 'https:' ? https : http;
     const timeoutMs = opts.timeoutMs ?? this.config.timeoutMs;
-    const single = { ...this.agentOptions, keepAlive: false };
-    const oneShot = !opts.freshConnection ? undefined : this.base.protocol === 'https:' ? new https.Agent(single) : new http.Agent(single);
-
-    return new Promise<RawResponse>((resolve, reject) => {
-      const req = transport.request(url, { method, headers, agent: oneShot ?? this.agent }, (res) => {
-        const chunks: Buffer[] = [];
-        res.on('data', (c: Buffer) => chunks.push(c));
-        res.on('error', (e) => reject(this.networkError(e, path)));
-        res.on('end', () => {
-          const socket = res.socket;
-          if (socket?.localAddress) this.localAddress = socket.localAddress;
-          if (socket?.remoteAddress) this.remoteAddress = socket.remoteAddress;
-          resolve({
-            status: res.statusCode ?? 0,
-            contentType: String(res.headers['content-type'] ?? ''),
-            body: Buffer.concat(chunks).toString('utf8'),
-          });
-        });
+    return this.transport
+      .send({ method, url, headers, ...(payload !== undefined ? { payload } : {}), timeoutMs, ...(opts.freshConnection ? { fresh: true } : {}), label: path })
+      .then((res) => {
+        if (res.localAddress) this.localAddress = res.localAddress;
+        if (res.remoteAddress) this.remoteAddress = res.remoteAddress;
+        return res;
+      })
+      .catch((e: unknown) => {
+        throw this.networkError(e as Error, path);
       });
-      req.setTimeout(timeoutMs, () => {
-        req.destroy(new OpnsenseError('timeout', `The firewall did not answer ${path} within ${Math.round(timeoutMs / 1000)} s.`, {
-          hint: 'If a firewall change was just applied, it may have cut this connection: see opn_pending_changes.',
-        }));
-      });
-      req.on('error', (e) => reject(this.networkError(e, path)));
-      req.on('close', () => oneShot?.destroy());
-      if (payload !== undefined) req.write(payload);
-      req.end();
-    });
   }
 
   private networkError(err: Error & { code?: string }, path: string): OpnsenseError {

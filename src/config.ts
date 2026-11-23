@@ -30,6 +30,10 @@ export interface ServerConfig {
   unblocked: string[];
   elicit: boolean;
   maxResponseChars: number;
+  /** Set at startup only (MCP_TEST_MODE=1 or --test): every tool answers from a simulated backend, nothing leaves the process. */
+  testMode: boolean;
+  /** Test mode only: how the simulated admin answers a confirmation. */
+  approver: 'approve' | 'deny' | 'timeout' | 'absent';
 }
 
 export type Env = Record<string, string | undefined>;
@@ -170,7 +174,28 @@ function buildInstance(name: string, raw: RawInstance, env: Env | null, defaults
   return instance;
 }
 
+const APPROVERS = ['approve', 'deny', 'timeout', 'absent'] as const;
+
+/** Test mode ignores every OPNSENSE_* variable: no URL, key or secret is read. */
+function testConfig(env: Env): ServerConfig {
+  const approver = (env.MCP_TEST_APPROVER ?? 'deny').trim().toLowerCase();
+  if (!(APPROVERS as readonly string[]).includes(approver)) throw configError(`MCP_TEST_APPROVER: "${approver}" is not one of ${APPROVERS.join(', ')}.`);
+  const instance: InstanceConfig = { name: 'test', url: 'http://test.invalid', apiKey: 'test', apiSecret: 'test', verifySsl: true, allowWrites: true, allowSensitive: true, dryRun: false, timeoutMs: 30_000, description: '[TEST] simulated firewall' };
+  return {
+    instances: new Map([['test', instance]]),
+    defaultInstance: 'test',
+    toolsets: new Set(['all']),
+    rollbackSeconds: 120,
+    unblocked: [],
+    elicit: true,
+    maxResponseChars: 120_000,
+    testMode: true,
+    approver: approver as ServerConfig['approver'],
+  };
+}
+
 export function loadConfig(env: Env = process.env): ServerConfig {
+  if (parseBool('MCP_TEST_MODE', env.MCP_TEST_MODE, false)) return testConfig(env);
   const defaults = {
     allowWrites: parseBool('OPNSENSE_ALLOW_WRITES', env.OPNSENSE_ALLOW_WRITES, false),
     allowSensitive: parseBool('OPNSENSE_ALLOW_SENSITIVE', env.OPNSENSE_ALLOW_SENSITIVE, false),
@@ -238,6 +263,8 @@ export function loadConfig(env: Env = process.env): ServerConfig {
       .filter(Boolean),
     elicit: parseBool('OPNSENSE_ELICIT', env.OPNSENSE_ELICIT, true),
     maxResponseChars: parseInteger('OPNSENSE_MAX_RESPONSE_CHARS', env.OPNSENSE_MAX_RESPONSE_CHARS, 120_000, 2_000, 5_000_000),
+    testMode: false,
+    approver: 'deny',
   };
   if (env.OPNSENSE_AUDIT_LOG) config.auditLog = env.OPNSENSE_AUDIT_LOG;
   return config;
