@@ -2,12 +2,12 @@
 
 | Mesure | TypeScript (Yutho) | Rust (Toji) |
 |---|---:|---:|
-| Démarrage | 181 | 6,4 |
-| Liste des outils (médiane) | 8,54 | 2,15 |
-| Liste des outils (p95) | 10,3 | 2,35 |
-| Appels par seconde | 611 | 10 696 |
-| Appels par seconde, 16 en parallèle | 954 | 21 400 |
-| Mémoire | 183 | 17,3 |
+| Démarrage | 244 | 7 |
+| Liste des outils (médiane) | 11,8 | 2,87 |
+| Liste des outils (p95) | 15,6 | 3,16 |
+| Appels par seconde | 468 | 7 491 |
+| Appels par seconde, 16 en parallèle | 703 | 12 089 |
+| Mémoire | 183 | 17,2 |
 | Taille du livrable | 1 080 | 7 360 |
 | Outils exposés | 209 | 209 |
 | Lignes de code | 6 098 | 13 555 |
